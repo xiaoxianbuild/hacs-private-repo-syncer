@@ -1,11 +1,19 @@
-# HACS Private Repo Syncer
+<p align="center">
+  <img src="images/logo.png" alt="HACS Private Repo Syncer Logo" width="160" height="160">
+</p>
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
-[![Release](https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml/badge.svg)](https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml)
-[![GitHub Release](https://img.shields.io/github/v/release/xiaoxianbuild/hacs-private-repo-syncer)](https://github.com/xiaoxianbuild/hacs-private-repo-syncer/releases)
-[![License](https://img.shields.io/github/license/xiaoxianbuild/hacs-private-repo-syncer)](LICENSE)
+<h1 align="center">HACS Private Repo Syncer</h1>
 
-**HACS Private Repo Syncer** 是一个专为 Home Assistant 打造的自定义集成。它能够安全、自动化地将您存放在 **GitHub 私有仓库** 中的自定义插件（HACS 格式）同步、更新并安装到 `/config/custom_components/` 目录下。
+<p align="center">
+  <strong>安全、自动化地将 GitHub 私有仓库中的自定义组件同步至 Home Assistant</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml"><img src="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/releases"><img src="https://img.shields.io/github/v/release/xiaoxianbuild/hacs-private-repo-syncer" alt="GitHub Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/xiaoxianbuild/hacs-private-repo-syncer" alt="License"></a>
+</p>
 
 ---
 
@@ -27,7 +35,7 @@
 
 ---
 
-## 📂 支持的私有仓库目录结构
+## 📁 支持的私有仓库目录结构
 
 本同步器能够智能识别以下各类仓库结构：
 
