@@ -1,4 +1,6 @@
 {
   "name": "HACS Private Repo Syncer",
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "private_repo_syncer.zip"
 }

@@ -1,6 +1,7 @@
 # HACS Private Repo Syncer
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
+[![Release](https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml/badge.svg)](https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/xiaoxianbuild/hacs-private-repo-syncer)](https://github.com/xiaoxianbuild/hacs-private-repo-syncer/releases)
 [![License](https://img.shields.io/github/license/xiaoxianbuild/hacs-private-repo-syncer)](LICENSE)
 
@@ -130,6 +131,23 @@ data:
 立即向 GitHub 查询是否有新 Release 或新提交：
 ```yaml
 service: private_repo_syncer.check_updates
+```
+
+---
+
+## 🚀 自动化发布与 Tag 规则 (GitHub Actions)
+
+仓库内置了自动 Release 工作流（`.github/workflows/release.yml`）：
+- **触发规则**：推送符合语义化版本规则的 Git Tag，例如 `v1.0.0`, `v0.2.1-beta.1` 等（正则匹配 `v[0-9]+.[0-9]+.[0-9]+*`）。
+- **执行流程**：
+  1. 自动执行 Python 单元测试，确保代码质量；
+  2. 自动打包生成符合 HACS 规范的发布资产 `private_repo_syncer.zip`；
+  3. 自动生成 GitHub Release、更新日志并关联 Release Asset。
+
+发布新版本只需执行：
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ---
