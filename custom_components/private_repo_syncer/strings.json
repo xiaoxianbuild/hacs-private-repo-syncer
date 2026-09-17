@@ -9,10 +9,10 @@
         }
       },
       "repositories": {
-        "title": "Configure Repositories",
-        "description": "Enter the private repositories you want to sync (one per line or comma-separated). You can specify branch with `@branch_name` (e.g. `owner/repo@dev`).",
+        "title": "Configure Repository URLs",
+        "description": "Enter GitHub URLs of private repositories to sync (one per line). e.g. `https://github.com/owner/repo` or with branch `https://github.com/owner/repo/tree/dev`.",
         "data": {
-          "repositories": "Private Repositories List",
+          "repositories": "Private Repository URLs (one per line)",
           "scan_interval": "Update Check Interval (minutes)"
         }
       }
@@ -20,9 +20,9 @@
     "error": {
       "invalid_auth": "Invalid Personal Access Token or permissions missing.",
       "cannot_connect": "Failed to connect to GitHub API. Please check your network.",
-      "repo_not_found": "Repository not found. Please verify the owner/repo name.",
+      "repo_not_found": "Repository not found. Please verify the URL owner/repo name.",
       "repo_forbidden": "Access forbidden. Ensure the token has permission to access this private repository.",
-      "no_valid_repositories": "No valid repositories specified.",
+      "no_valid_repositories": "No valid repository URLs specified.",
       "unknown": "An unexpected error occurred."
     },
     "abort": {
@@ -33,16 +33,16 @@
     "step": {
       "init": {
         "title": "Manage Private Repositories",
-        "description": "Update your GitHub Token or modify the monitored private repositories list.",
+        "description": "Update your GitHub Token or modify monitored repository URLs.",
         "data": {
           "github_token": "Personal Access Token",
-          "repositories": "Private Repositories List",
+          "repositories": "Private Repository URLs (one per line)",
           "scan_interval": "Update Check Interval (minutes)"
         }
       }
     },
     "error": {
-      "no_valid_repositories": "No valid repositories specified.",
+      "no_valid_repositories": "No valid repository URLs specified.",
       "unknown": "An unexpected error occurred."
     }
   }

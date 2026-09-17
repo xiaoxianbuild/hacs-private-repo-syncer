@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -31,7 +32,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _parse_repo_string(raw_text: str) -> List[Dict[str, str]]:
-    """Parse newline or comma separated repository strings into structured dicts."""
+    """Parse newline or comma separated repository URLs/strings into structured dicts.
+
+    Supports:
+    - https://github.com/owner/repo
+    - https://github.com/owner/repo/tree/branch_name
+    - https://github.com/owner/repo.git
+    - git@github.com:owner/repo.git
+    - owner/repo@branch_name
+    - owner/repo
+    """
     lines = [line.strip() for line in raw_text.replace(",", "\n").split("\n")]
     repos: List[Dict[str, str]] = []
     seen = set()
@@ -40,19 +50,74 @@ def _parse_repo_string(raw_text: str) -> List[Dict[str, str]]:
         if not line or line.startswith("#"):
             continue
 
-        # Optional format: owner/repo@branch or owner/repo
+        url_str = line.strip()
         branch = ""
-        if "@" in line:
-            repo_part, branch = line.split("@", 1)
+        repo_part = ""
+
+        # SSH format: git@github.com:owner/repo.git
+        if url_str.startswith("git@github.com:"):
+            url_str = url_str[len("git@github.com:") :]
+            if url_str.endswith(".git"):
+                url_str = url_str[:-4]
+            repo_part = url_str
+
+        # HTTP/HTTPS format: https://github.com/owner/repo[/tree/branch]
+        elif url_str.startswith("http://") or url_str.startswith("https://"):
+            parsed = urlparse(url_str)
+            path = parsed.path.strip("/")
+            parts = [p for p in path.split("/") if p]
+            if len(parts) >= 2:
+                owner = parts[0]
+                repo = parts[1]
+                if repo.endswith(".git"):
+                    repo = repo[:-4]
+                repo_part = f"{owner}/{repo}"
+                if len(parts) >= 4 and parts[2] in ("tree", "blob"):
+                    branch = "/".join(parts[3:])
+            else:
+                repo_part = path
+
         else:
-            repo_part = line
+            # Shorthand format: owner/repo or owner/repo@branch
+            if url_str.startswith("github.com/"):
+                url_str = url_str[len("github.com/") :]
+
+            if "@" in url_str:
+                repo_part, branch = url_str.split("@", 1)
+            else:
+                repo_part = url_str
+
+            if repo_part.endswith(".git"):
+                repo_part = repo_part[:-4]
 
         repo_part = repo_part.strip()
-        if "/" in repo_part and repo_part not in seen:
-            seen.add(repo_part)
-            repos.append({"repo": repo_part, "branch": branch.strip()})
+        branch = branch.strip()
+
+        if "/" in repo_part:
+            parts = [p for p in repo_part.split("/") if p]
+            if len(parts) >= 2:
+                clean_repo = f"{parts[0]}/{parts[1]}"
+                unique_key = f"{clean_repo}@{branch}" if branch else clean_repo
+                if unique_key not in seen:
+                    seen.add(unique_key)
+                    repos.append({"repo": clean_repo, "branch": branch})
 
     return repos
+
+
+def _format_repos_to_urls(repos: List[Dict[str, str]]) -> str:
+    """Format repository dicts into full GitHub URLs for UI display."""
+    urls: List[str] = []
+    for r in repos:
+        repo = r.get("repo", "")
+        branch = r.get("branch", "")
+        if not repo:
+            continue
+        if branch:
+            urls.append(f"https://github.com/{repo}/tree/{branch}")
+        else:
+            urls.append(f"https://github.com/{repo}")
+    return "\n".join(urls)
 
 
 class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -106,7 +171,7 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_repositories(
         self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
-        """Step 2: Add private repository list and scan interval."""
+        """Step 2: Add private repository URLs and scan interval."""
         errors: Dict[str, str] = {}
 
         if user_input is not None:
@@ -144,7 +209,7 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _LOGGER.error("Error validating repository %s: %s", first_repo, exc)
                     errors["base"] = "cannot_connect"
 
-        default_text = "your_username/your_private_integration"
+        default_text = "https://github.com/your_username/your_private_integration"
         return self.async_show_form(
             step_id="repositories",
             data_schema=vol.Schema(
@@ -230,14 +295,8 @@ class PrivateRepoSyncerOptionsFlow(config_entries.OptionsFlow):
                     },
                 )
 
-        # Convert repo list back to string format for display
-        repo_lines = []
-        for r in current_repos:
-            line = r["repo"]
-            if r.get("branch"):
-                line += f"@{r['branch']}"
-            repo_lines.append(line)
-        repo_string = "\n".join(repo_lines)
+        # Format repository URLs for user editing
+        repo_urls_string = _format_repos_to_urls(current_repos)
 
         return self.async_show_form(
             step_id="init",
@@ -251,7 +310,7 @@ class PrivateRepoSyncerOptionsFlow(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Required(
-                        CONF_REPOSITORIES, default=repo_string
+                        CONF_REPOSITORIES, default=repo_urls_string
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(multiline=True)
                     ),

@@ -111,13 +111,14 @@ my-flat-component/
 1. 进入 Home Assistant **设置 (Settings)** -> **设备与服务 (Devices & Services)**；
 2. 点击右下角 **添加集成 (Add Integration)**，搜索 `HACS Private Repo Syncer`；
 3. **第一步**：粘贴您的 GitHub Personal Access Token；
-4. **第二步**：输入您需要同步的私有仓库，格式如：
+4. **第二步**：输入您需要同步的私有仓库 GitHub URL，格式如：
    ```text
-   your_username/repo_a
-   your_username/repo_b@dev
+   https://github.com/your_username/repo_a
+   https://github.com/your_username/repo_b/tree/dev
    ```
+   - 支持直接从浏览器地址栏复制完整 URL；
    - 支持多行或逗号分隔；
-   - 支持使用 `@分支名` 指定跟踪特定分支（若不指定，优先检测最新 Release，无 Release 时跟踪默认分支）。
+   - 支持带有 `/tree/分支名` 指定跟踪特定分支（若不指定，优先检测最新 Release，无 Release 时跟踪默认分支）。
 5. 点击提交即可！
 
 ---
@@ -146,7 +147,7 @@ service: private_repo_syncer.check_updates
 ## 🚀 自动化发布与 Tag 规则 (GitHub Actions)
 
 仓库内置了自动 Release 工作流（`.github/workflows/release.yml`）：
-- **触发规则**：推送符合语义化版本规则的 Git Tag，例如 `v1.0.0`, `v0.2.1-beta.1` 等（正则匹配 `v[0-9]+.[0-9]+.[0-9]+*`）。
+- **触发规则**：推送符合语义化版本规则的 Git Tag，例如 `v1.0.0`, `v1.0.2` 等（正则匹配 `v[0-9]+.[0-9]+.[0-9]+*`）。
 - **执行流程**：
   1. 自动执行 Python 单元测试，确保代码质量；
   2. 自动打包生成符合 HACS 规范的发布资产 `private_repo_syncer.zip`；
@@ -154,15 +155,15 @@ service: private_repo_syncer.check_updates
 
 发布新版本只需执行：
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 ---
 
 ## 🧪 单元测试
 
-本项目核心解压引擎包含严格的自动化测试：
+本项目核心解压引擎与 URL 解析器包含严格的自动化测试：
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
