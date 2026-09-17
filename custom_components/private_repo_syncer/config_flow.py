@@ -9,8 +9,8 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import homeassistant.helpers.config_validation as cv
 
 from .const import (
     CONF_GITHUB_TOKEN,
@@ -62,6 +62,7 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize flow state."""
+        super().__init__()
         self._token: Optional[str] = None
 
     async def async_step_user(
@@ -92,7 +93,11 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_GITHUB_TOKEN): str,
+                    vol.Required(CONF_GITHUB_TOKEN): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.PASSWORD
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -124,8 +129,10 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         data={
                             CONF_GITHUB_TOKEN: self._token,
                             CONF_REPOSITORIES: parsed_repos,
-                            CONF_SCAN_INTERVAL: user_input.get(
-                                CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                            CONF_SCAN_INTERVAL: int(
+                                user_input.get(
+                                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                                )
                             ),
                         },
                     )
@@ -142,10 +149,20 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="repositories",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_REPOSITORIES, default=default_text): str,
+                    vol.Required(
+                        CONF_REPOSITORIES, default=default_text
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(multiline=True)
+                    ),
                     vol.Optional(
                         CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=MIN_SCAN_INTERVAL,
+                            mode=selector.NumberSelectorMode.BOX,
+                            unit_of_measurement="min",
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -163,17 +180,26 @@ class PrivateRepoSyncerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class PrivateRepoSyncerOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for HACS Private Repo Syncer."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
+    def __init__(self, config_entry: Optional[config_entries.ConfigEntry] = None) -> None:
+        """Initialize options flow, supporting both legacy and modern HA core."""
+        super().__init__()
+        self._entry_fallback = config_entry
+
+    @property
+    def _active_entry(self) -> config_entries.ConfigEntry:
+        """Retrieve config entry safely across different HA versions."""
+        if hasattr(self, "config_entry") and self.config_entry is not None:
+            return self.config_entry
+        return self._entry_fallback
 
     async def async_step_init(
         self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
         """Manage configuration options (update token, repos, interval)."""
         errors: Dict[str, str] = {}
-        entry_data = self.config_entry.data
-        entry_options = self.config_entry.options
+        entry = self._active_entry
+        entry_data = entry.data if entry else {}
+        entry_options = entry.options if entry else {}
 
         current_token = entry_options.get(
             CONF_GITHUB_TOKEN, entry_data.get(CONF_GITHUB_TOKEN, "")
@@ -198,8 +224,8 @@ class PrivateRepoSyncerOptionsFlow(config_entries.OptionsFlow):
                     data={
                         CONF_GITHUB_TOKEN: new_token,
                         CONF_REPOSITORIES: parsed_repos,
-                        CONF_SCAN_INTERVAL: user_input.get(
-                            CONF_SCAN_INTERVAL, current_interval
+                        CONF_SCAN_INTERVAL: int(
+                            user_input.get(CONF_SCAN_INTERVAL, current_interval)
                         ),
                     },
                 )
@@ -217,10 +243,26 @@ class PrivateRepoSyncerOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_GITHUB_TOKEN, default=current_token): str,
-                    vol.Required(CONF_REPOSITORIES, default=repo_string): str,
-                    vol.Optional(CONF_SCAN_INTERVAL, default=current_interval): vol.All(
-                        vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL)
+                    vol.Required(
+                        CONF_GITHUB_TOKEN, default=current_token
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.PASSWORD
+                        )
+                    ),
+                    vol.Required(
+                        CONF_REPOSITORIES, default=repo_string
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(multiline=True)
+                    ),
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL, default=current_interval
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=MIN_SCAN_INTERVAL,
+                            mode=selector.NumberSelectorMode.BOX,
+                            unit_of_measurement="min",
+                        )
                     ),
                 }
             ),
