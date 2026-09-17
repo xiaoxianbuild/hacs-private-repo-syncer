@@ -32,7 +32,10 @@ from .github_client import GitHubClient, GitHubClientError
 _LOGGER = logging.getLogger(__name__)
 
 SYNC_SERVICE_SCHEMA = vol.Schema(
-    {\n        vol.Optional(ATTR_REPOSITORY): cv.string,\n        vol.Optional(ATTR_FORCE, default=False): cv.boolean,\n    }
+    {
+        vol.Optional(ATTR_REPOSITORY): cv.string,
+        vol.Optional(ATTR_FORCE, default=False): cv.boolean,
+    }
 )
 
 CHECK_UPDATES_SERVICE_SCHEMA = vol.Schema({})
