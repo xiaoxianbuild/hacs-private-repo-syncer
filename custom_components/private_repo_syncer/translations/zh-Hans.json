@@ -46,5 +46,15 @@
       "cannot_connect": "无法连接至 GitHub API，请检查网络连接。",
       "unknown": "发生未知错误，请查看日志。"
     }
+  },
+  "entity": {
+    "button": {
+      "sync_now": {
+        "name": "立即同步"
+      },
+      "check_updates": {
+        "name": "检查更新"
+      }
+    }
   }
 }

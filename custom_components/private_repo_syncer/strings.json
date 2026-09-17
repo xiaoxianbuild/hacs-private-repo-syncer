@@ -46,5 +46,15 @@
       "cannot_connect": "Failed to connect to GitHub API.",
       "unknown": "An unexpected error occurred."
     }
+  },
+  "entity": {
+    "button": {
+      "sync_now": {
+        "name": "Sync Now"
+      },
+      "check_updates": {
+        "name": "Check Updates"
+      }
+    }
   }
 }

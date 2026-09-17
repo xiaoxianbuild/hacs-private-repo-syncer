@@ -23,6 +23,8 @@
   若您的私有仓库是全栈或混合仓库（例如包含 Go/Node 后端服务、`Dockerfile`、`node_modules`、前端源码等），同步引擎将**只提取** `custom_components/<domain>` 子目录，彻底杜绝垃圾文件污染 Home Assistant。
 - 📦 **原生 Update Entity 支持**：
   为每个受监控的私有仓库自动创建 Home Assistant 原生的 `Update` 实体。在 HA 的“设置 -> 系统 -> 更新”面板中直观查看版本变动、Release Notes，并支持一键点击安装更新。
+- 🔘 **实体级手动触发（Button Entities）**：
+  每个私有仓库设备均自动配备 **“立即同步 (Sync Now)”** 与 **“检查更新 (Check Updates)”** 按钮实体。无论当前是否有新版本，随时可以在仪表盘或设备卡片上一键手动拉取最新代码并覆盖安装！
 - 🎯 **两步向导 & 自动版本发现**：
   - **第 1 步**：输入 PAT 与标准仓库 URL，即时在线校验权限与连通性；
   - **第 2 步**：自动列出该仓库的所有 Release、Tag 标签与 Branch 分支供您可视化选择。
@@ -125,27 +127,29 @@ my-flat-component/
      - 🏷️ **特定 Tag 标签**（如 `v1.0.0`）
      - 🌿 **特定 Branch 分支**（如 `main` 或 `dev` 分支最新代码）
    - 设置更新检查间隔（默认 120 分钟）；
-5. 点击提交即完成安装与自动化监控！
+5. 点击提交即完成安装！插件会自动在后台下载并提取到 `/config/custom_components` 目录下。
 
 ---
 
-## 🎛️ 服务与自动化调用 (Services)
+## 🔘 手动触发更新仓库的三种方式
 
-集成注册了以下服务，方便您在自动化或脚本中调用：
+### 方式 1：通过按钮实体一键触发（最推荐）
+每个监控的私有仓库都会在对应设备下生成控制按钮：
+- **`button.<repo>_sync_now`（立即同步）**：点击该按钮（按下/Press），系统立即重新从 GitHub 拉取该分支/标签的代码并覆盖更新至 `/config/custom_components`。
+- **`button.<repo>_check_updates`（检查更新）**：点击该按钮，立即向 GitHub 发起请求刷新最新版本信息。
 
-### 1. `private_repo_syncer.sync`
-手动触发下载并更新指定或全部私有仓库：
+您可以将这些按钮直接放置在 Lovelace 仪表盘，或在自动化中任意调用！
+
+### 方式 2：在系统更新面板中点击“安装”
+当仓库发布了新版本（或分支有了新提交），Home Assistant 原生的“设置 -> 系统 -> 更新”面板会展示该插件的更新提示，点击“安装”即可一键升级。
+
+### 方式 3：调用集成服务 (Services)
+在“开发者工具 -> 动作/服务”中调用：
 ```yaml
-service: private_repo_syncer.sync
+action: private_repo_syncer.sync
 data:
-  repository: "your_username/my-private-component" # 可选，不填则同步全部配置的仓库
-  force: false                                      # 可选，是否强制覆盖
-```
-
-### 2. `private_repo_syncer.check_updates`
-立即向 GitHub 查询是否有新 Release 或新提交：
-```yaml
-service: private_repo_syncer.check_updates
+  repository: "your_username/my-private-component" # 指定仓库，留空则同步全部配置的仓库
+  force: true                                       # 是否强制覆盖
 ```
 
 ---
@@ -153,16 +157,13 @@ service: private_repo_syncer.check_updates
 ## 🚀 自动化发布与 Tag 规则 (GitHub Actions)
 
 仓库内置了自动 Release 工作流（`.github/workflows/release.yml`）：
-- **触发规则**：推送符合语义化版本规则的 Git Tag，例如 `v1.0.0`, `v1.0.2` 等（正则匹配 `v[0-9]+.[0-9]+.[0-9]+*`）。
-- **执行流程**：
-  1. 自动执行 Python 单元测试，确保代码质量；
-  2. 自动打包生成符合 HACS 规范的发布资产 `private_repo_syncer.zip`；
-  3. 自动生成 GitHub Release、更新日志并关联 Release Asset。
+- **触发规则**：推送符合语义化版本规则的 Git Tag，例如 `v1.0.0`, `v1.0.6` 等。
+- **执行流程**：自动运行单元测试、打包发布资产并创建 GitHub Release。
 
 发布新版本只需执行：
 ```bash
-git tag v1.0.2
-git push origin v1.0.2
+git tag v1.0.6
+git push origin v1.0.6
 ```
 
 ---

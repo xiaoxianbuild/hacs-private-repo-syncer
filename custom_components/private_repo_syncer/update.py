@@ -12,6 +12,7 @@ from homeassistant.components.update import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -52,16 +53,28 @@ class PrivateRepoUpdateEntity(CoordinatorEntity[PrivateRepoCoordinator], UpdateE
         super().__init__(coordinator)
         self._full_repo = full_repo
         clean_name = full_repo.replace("/", "_").replace("-", "_")
-        self._attr_unique_id = f"{DOMAIN}_{clean_name}"
+        self._attr_unique_id = f"{DOMAIN}_{clean_name}_update"
         self._attr_has_entity_name = True
 
         repo_part = full_repo.split("/", 1)[-1]
-        self._attr_name = repo_part.replace("-", " ").replace("_", " ").title()
+        self._attr_name = "Update"
 
     @property
     def _repo_data(self) -> Dict[str, Any]:
         """Get coordinator data for this repository."""
         return self.coordinator.data.get(self._full_repo, {}) if self.coordinator.data else {}
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Link update entity to the repository device."""
+        target_type = self._repo_data.get("target_type", "release")
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._full_repo)},
+            name=self._full_repo,
+            manufacturer="GitHub Private",
+            model=f"HACS Syncer ({target_type})",
+            configuration_url=f"https://github.com/{self._full_repo}",
+        )
 
     @property
     def installed_version(self) -> Optional[str]:

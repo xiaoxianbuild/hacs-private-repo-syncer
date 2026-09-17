@@ -1,6 +1,6 @@
 sync:
   name: Sync Private Repositories
-  description: Downloads and installs/updates components from configured private repositories.
+  description: Downloads and installs/updates components from configured private repositories into /config/custom_components.
   fields:
     repository:
       name: Repository
@@ -13,7 +13,7 @@ sync:
       name: Force Update
       description: Force download and extraction regardless of version match.
       required: false
-      default: false
+      default: true
       selector:
         boolean:
 
