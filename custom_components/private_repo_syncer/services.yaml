@@ -1,0 +1,22 @@
+sync:
+  name: Sync Private Repositories
+  description: Downloads and installs/updates components from configured private repositories.
+  fields:
+    repository:
+      name: Repository
+      description: Target repository in owner/repo format (e.g. xiaoxianbuild/my-plugin). If omitted, all configured repositories will be synced.
+      required: false
+      example: "xiaoxianbuild/my-private-component"
+      selector:
+        text:
+    force:
+      name: Force Update
+      description: Force download and extraction regardless of version match.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+check_updates:
+  name: Check for Updates
+  description: Manually triggers an immediate query to check for the latest releases or commits from monitored private repositories.

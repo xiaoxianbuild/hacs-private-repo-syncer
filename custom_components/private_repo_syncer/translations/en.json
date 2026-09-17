@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GitHub Authentication",
+        "description": "Enter your GitHub Personal Access Token (classic or fine-grained) with `repo` or `contents:read` scope.",
+        "data": {
+          "github_token": "Personal Access Token"
+        }
+      },
+      "repositories": {
+        "title": "Configure Repositories",
+        "description": "Enter the private repositories you want to sync (one per line or comma-separated). You can specify branch with `@branch_name` (e.g. `owner/repo@dev`).",
+        "data": {
+          "repositories": "Private Repositories List",
+          "scan_interval": "Update Check Interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid Personal Access Token or permissions missing.",
+      "cannot_connect": "Failed to connect to GitHub API. Please check your network.",
+      "repo_not_found": "Repository not found. Please verify the owner/repo name.",
+      "repo_forbidden": "Access forbidden. Ensure the token has permission to access this private repository.",
+      "no_valid_repositories": "No valid repositories specified.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This integration is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage Private Repositories",
+        "description": "Update your GitHub Token or modify the monitored private repositories list.",
+        "data": {
+          "github_token": "Personal Access Token",
+          "repositories": "Private Repositories List",
+          "scan_interval": "Update Check Interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "no_valid_repositories": "No valid repositories specified.",
+      "unknown": "An unexpected error occurred."
+    }
+  }
+}
