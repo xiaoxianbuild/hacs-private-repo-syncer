@@ -6,6 +6,6 @@
   "documentation": "https://github.com/xiaoxianbuild/hacs-private-repo-syncer",
   "issue_tracker": "https://github.com/xiaoxianbuild/hacs-private-repo-syncer/issues",
   "iot_class": "cloud_polling",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "requirements": []
 }

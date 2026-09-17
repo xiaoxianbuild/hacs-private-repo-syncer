@@ -32,10 +32,7 @@ from .github_client import GitHubClient, GitHubClientError
 _LOGGER = logging.getLogger(__name__)
 
 SYNC_SERVICE_SCHEMA = vol.Schema(
-    {
-        vol.Optional(ATTR_REPOSITORY): cv.string,
-        vol.Optional(ATTR_FORCE, default=False): cv.boolean,
-    }
+    {\n        vol.Optional(ATTR_REPOSITORY): cv.string,\n        vol.Optional(ATTR_FORCE, default=False): cv.boolean,\n    }
 )
 
 CHECK_UPDATES_SERVICE_SCHEMA = vol.Schema({})
@@ -71,6 +68,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Forward entry setups to platforms (e.g. update)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Initial auto-sync: If the component is not yet installed locally, install it immediately
+    async def _async_auto_sync_on_setup() -> None:
+        for repo_entry in coordinator.repositories:
+            full_repo = repo_entry.get("repo")
+            if not full_repo:
+                continue
+
+            repo_data = coordinator.data.get(full_repo, {})
+            # If not installed or missing local folder, download and extract immediately
+            if not repo_data.get("installed_version"):
+                _LOGGER.info("Initial sync: Auto-downloading and installing %s", full_repo)
+                try:
+                    await coordinator.async_sync_repository(full_repo, force=True)
+                except Exception as exc:
+                    _LOGGER.error("Failed to auto-sync %s on setup: %s", full_repo, exc)
+
+    hass.async_create_task(_async_auto_sync_on_setup())
 
     # Register integration services
     async def async_handle_sync(call: ServiceCall) -> None:

@@ -151,39 +151,69 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     t_val = r.get("target_value") or r.get("branch")
                     if t_type in ("branch", "tag") and t_val:
                         ref = t_val
-                    elif t_type == "release" and t_val and t_val != "latest":
-                        ref = t_val
+                    elif t_type == "release":
+                        if t_val and t_val != "latest":
+                            ref = t_val
+                        else:
+                            repo_data = self.data.get(full_repo, {}) if self.data else {}
+                            latest_ver = repo_data.get("latest_version")
+                            if latest_ver and latest_ver != "unknown":
+                                ref = latest_ver
                     break
 
         _LOGGER.info("Starting sync for repository %s (ref=%s, force=%s)", full_repo, ref, force)
 
-        # 1. Download zipball from GitHub
-        zip_bytes = await self.client.download_zipball(owner, repo, ref=ref)
+        try:
+            # 1. Download zipball from GitHub
+            zip_bytes = await self.client.download_zipball(owner, repo, ref=ref)
 
-        # 2. Extract in executor thread
-        def _extract() -> List[Dict[str, Any]]:
-            return extract_components_from_zip(
-                zip_bytes=zip_bytes,
-                target_custom_components_dir=self.custom_components_dir,
-                backup_existing=True,
+            # 2. Extract in executor thread
+            def _extract() -> List[Dict[str, Any]]:
+                return extract_components_from_zip(
+                    zip_bytes=zip_bytes,
+                    target_custom_components_dir=self.custom_components_dir,
+                    backup_existing=True,
+                )
+
+            extracted = await self.hass.async_add_executor_job(_extract)
+
+            # 3. Refresh coordinator data
+            await self.async_refresh()
+
+            # 4. Notify user to restart Home Assistant
+            extracted_domains = ", ".join(item["domain"] for item in extracted)
+            persistent_notification.async_create(
+                self.hass,
+                message=(
+                    f"Repository **{full_repo}** has been synced successfully!\n\n"
+                    f"Updated component(s): `{extracted_domains}` in `/config/custom_components`.\n\n"
+                    f"Please **restart Home Assistant** for the new components to take effect."
+                ),
+                title="Private Repo Synced",
+                notification_id=f"synced_{full_repo.replace('/', '_')}",
             )
 
-        extracted = await self.hass.async_add_executor_job(_extract)
+            return extracted
 
-        # 3. Refresh coordinator data
-        await self.async_refresh()
+        except ComponentNotFoundError as exc:
+            _LOGGER.error("No valid HACS component found in %s: %s", full_repo, exc)
+            persistent_notification.async_create(
+                self.hass,
+                message=(
+                    f"Failed to sync **{full_repo}**: No valid HACS custom component found!\n\n"
+                    f"Please ensure the repository contains `custom_components/<domain>/manifest.json` or root `manifest.json`."
+                ),
+                title="Private Repo Sync Failed",
+                notification_id=f"sync_err_{full_repo.replace('/', '_')}",
+            )
+            raise
 
-        # 4. Notify user to restart Home Assistant
-        extracted_domains = ", ".join(item["domain"] for item in extracted)
-        persistent_notification.async_create(
-            self.hass,
-            message=(
-                f"Repository **{full_repo}** has been synced successfully!\n\n"
-                f"Updated component(s): `{extracted_domains}`.\n\n"
-                f"Please **restart Home Assistant** for the code changes to take effect."
-            ),
-            title="Private Repo Synced",
-            notification_id=f"synced_{full_repo.replace('/', '_')}",
-        )
-
-        return extracted
+        except Exception as exc:
+            _LOGGER.exception("Sync failed for repository %s: %s", full_repo, exc)
+            persistent_notification.async_create(
+                self.hass,
+                message=f"Failed to sync repository **{full_repo}**: {exc}",
+                title="Private Repo Sync Error",
+                notification_id=f"sync_err_{full_repo.replace('/', '_')}",
+            )
+            raise
