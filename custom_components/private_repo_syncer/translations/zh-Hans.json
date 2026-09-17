@@ -2,47 +2,48 @@
   "config": {
     "step": {
       "user": {
-        "title": "GitHub 身份验证",
-        "description": "请输入拥有 `repo` 或 `contents:read` 权限的 GitHub Personal Access Token (PAT)。",
+        "title": "GitHub 身份验证与仓库地址",
+        "description": "请输入 GitHub Personal Access Token (PAT) 及私有仓库的标准 URL。系统将在此步验证 Token 权限及仓库是否可访问。",
         "data": {
-          "github_token": "GitHub 个人访问令牌 (PAT)"
+          "github_token": "GitHub 个人访问令牌 (PAT)",
+          "repository_url": "私有仓库 URL (如 https://github.com/owner/repo)"
         }
       },
-      "repositories": {
-        "title": "配置私有仓库 URL",
-        "description": "请输入需要同步的私有仓库 GitHub 链接（每行一个）。例如 `https://github.com/owner/repo`，支持指定分支如 `https://github.com/owner/repo/tree/dev`。",
+      "target": {
+        "title": "选择安装版本或分支",
+        "description": "已成功连接至该私有仓库！请选择您希望安装或跟踪的 Release、Tag 标签或 Branch 分支：",
         "data": {
-          "repositories": "私有仓库 URL (每行一个)",
+          "target_selection": "安装目标 (Release / Tag / Branch)",
           "scan_interval": "更新检查间隔 (分钟)"
         }
       }
     },
     "error": {
-      "invalid_auth": "GitHub 令牌无效或缺少必要读取权限。",
+      "invalid_auth": "GitHub 令牌无效或缺少必要读取权限，请检查 PAT 设置。",
       "cannot_connect": "无法连接至 GitHub API，请检查网络连接。",
-      "repo_not_found": "未找到仓库，请检查 URL 中的 owner/repo 是否正确。",
-      "repo_forbidden": "访问被拒绝 (403)，请确认该 Token 是否拥有此私有仓库的访问权限。",
-      "no_valid_repositories": "未提供有效的仓库 URL。",
+      "invalid_repo_url": "请输入合法的 GitHub 仓库 URL（例如 https://github.com/owner/repo）。",
+      "repo_not_found": "未找到仓库，请检查 URL 拼写或 Token 是否有权访问此私有仓库。",
+      "repo_forbidden": "访问被拒绝 (403)，请确认该 Token 拥有此私有仓库的读取权限。",
       "unknown": "发生未知错误，请查看日志。"
     },
     "abort": {
-      "already_configured": "该集成已经配置过了。"
+      "already_configured": "该私有仓库已经配置过了。"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "管理私有仓库",
-        "description": "更新 GitHub Token 或编辑受监控的私有仓库 GitHub 链接。",
+        "title": "管理私有仓库跟踪配置",
+        "description": "更新 GitHub PAT、切换安装的目标版本/分支或修改更新检查频率。",
         "data": {
           "github_token": "GitHub 个人访问令牌 (PAT)",
-          "repositories": "私有仓库 URL (每行一个)",
+          "target_selection": "跟踪目标 (Release / Tag / Branch)",
           "scan_interval": "更新检查间隔 (分钟)"
         }
       }
     },
     "error": {
-      "no_valid_repositories": "未提供有效的仓库 URL。",
+      "cannot_connect": "无法连接至 GitHub API，请检查网络连接。",
       "unknown": "发生未知错误，请查看日志。"
     }
   }

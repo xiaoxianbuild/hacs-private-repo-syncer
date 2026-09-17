@@ -2,17 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "GitHub Authentication",
-        "description": "Enter your GitHub Personal Access Token (classic or fine-grained) with `repo` or `contents:read` scope.",
+        "title": "GitHub Authentication & Repository",
+        "description": "Enter your GitHub Personal Access Token (PAT) and the standard repository URL. The system will verify permissions and accessibility in this step.",
         "data": {
-          "github_token": "Personal Access Token"
+          "github_token": "Personal Access Token (PAT)",
+          "repository_url": "Repository URL (e.g. https://github.com/owner/repo)"
         }
       },
-      "repositories": {
-        "title": "Configure Repository URLs",
-        "description": "Enter GitHub URLs of private repositories to sync (one per line). e.g. `https://github.com/owner/repo` or with branch `https://github.com/owner/repo/tree/dev`.",
+      "target": {
+        "title": "Select Target Version or Branch",
+        "description": "Connected successfully! Choose which Release, Tag, or Branch you want to install and track:",
         "data": {
-          "repositories": "Private Repository URLs (one per line)",
+          "target_selection": "Installation Target (Release / Tag / Branch)",
           "scan_interval": "Update Check Interval (minutes)"
         }
       }
@@ -20,29 +21,29 @@
     "error": {
       "invalid_auth": "Invalid Personal Access Token or permissions missing.",
       "cannot_connect": "Failed to connect to GitHub API. Please check your network.",
-      "repo_not_found": "Repository not found. Please verify the URL owner/repo name.",
+      "invalid_repo_url": "Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo).",
+      "repo_not_found": "Repository not found. Please verify the URL or ensure token has access.",
       "repo_forbidden": "Access forbidden. Ensure the token has permission to access this private repository.",
-      "no_valid_repositories": "No valid repository URLs specified.",
       "unknown": "An unexpected error occurred."
     },
     "abort": {
-      "already_configured": "This integration is already configured."
+      "already_configured": "This repository is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Manage Private Repositories",
-        "description": "Update your GitHub Token or modify monitored repository URLs.",
+        "title": "Manage Repository Tracking",
+        "description": "Update your GitHub PAT, switch target branch/tag/release, or change update interval.",
         "data": {
-          "github_token": "Personal Access Token",
-          "repositories": "Private Repository URLs (one per line)",
+          "github_token": "Personal Access Token (PAT)",
+          "target_selection": "Tracking Target (Release / Tag / Branch)",
           "scan_interval": "Update Check Interval (minutes)"
         }
       }
     },
     "error": {
-      "no_valid_repositories": "No valid repository URLs specified.",
+      "cannot_connect": "Failed to connect to GitHub API.",
       "unknown": "An unexpected error occurred."
     }
   }

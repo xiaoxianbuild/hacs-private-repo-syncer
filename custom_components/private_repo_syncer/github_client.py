@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +67,6 @@ class GitHubClient:
         if resp.status == 401:
             raise GitHubAuthError("Invalid GitHub Personal Access Token.")
         if resp.status == 403:
-            # Check if rate limit exceeded
             remaining = resp.headers.get("x-ratelimit-remaining")
             if remaining == "0":
                 reset_time = resp.headers.get("x-ratelimit-reset", "unknown")
@@ -95,21 +94,84 @@ class GitHubClient:
         resp = await self._request("GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}")
         return await resp.json()
 
-    async def get_latest_version_info(
-        self, owner: str, repo: str, preferred_branch: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Get latest release information, falling back to the latest commit on branch.
+    async def get_releases(self, owner: str, repo: str, per_page: int = 20) -> List[Dict[str, Any]]:
+        """Fetch list of releases for the repository."""
+        try:
+            resp = await self._request(
+                "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/releases?per_page={per_page}"
+            )
+            return await resp.json()
+        except GitHubNotFoundError:
+            return []
 
-        Returns dict containing:
-        - version: tag name or short commit SHA
-        - commit_sha: full commit SHA
-        - type: 'release' or 'commit'
-        - release_url: HTML url
-        - release_name: title/name
-        - release_notes: markdown body
-        - published_at: timestamp
+    async def get_tags(self, owner: str, repo: str, per_page: int = 20) -> List[Dict[str, Any]]:
+        """Fetch list of tags for the repository."""
+        try:
+            resp = await self._request(
+                "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/tags?per_page={per_page}"
+            )
+            return await resp.json()
+        except GitHubNotFoundError:
+            return []
+
+    async def get_branches(self, owner: str, repo: str, per_page: int = 30) -> List[Dict[str, Any]]:
+        """Fetch list of branches for the repository."""
+        try:
+            resp = await self._request(
+                "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/branches?per_page={per_page}"
+            )
+            return await resp.json()
+        except GitHubNotFoundError:
+            return []
+
+    async def get_latest_version_info(
+        self,
+        owner: str,
+        repo: str,
+        target_type: str = "release",
+        target_value: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get version info based on selected target type (release, tag, or branch).
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            target_type: 'release' | 'tag' | 'branch'
+            target_value: specific tag name or branch name, or None for latest
         """
-        # 1. Try to get latest release
+        # Case 1: Specific Tag
+        if target_type == "tag" and target_value:
+            return {
+                "version": target_value,
+                "commit_sha": None,
+                "type": "tag",
+                "release_url": f"https://github.com/{owner}/{repo}/releases/tag/{target_value}",
+                "release_name": f"Tag {target_value}",
+                "release_notes": f"Tracking tag {target_value}",
+                "published_at": None,
+            }
+
+        # Case 2: Specific Branch
+        if target_type == "branch" and target_value:
+            resp = await self._request(
+                "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/commits/{target_value}"
+            )
+            commit_data = await resp.json()
+            sha = commit_data.get("sha", "")
+            commit_msg = commit_data.get("commit", {}).get("message", "")
+            published_at = commit_data.get("commit", {}).get("author", {}).get("date")
+            return {
+                "version": sha[:7] if sha else "unknown",
+                "commit_sha": sha,
+                "type": "branch",
+                "branch": target_value,
+                "release_url": commit_data.get("html_url"),
+                "release_name": commit_msg.split("\n")[0] if commit_msg else sha[:7],
+                "release_notes": commit_msg,
+                "published_at": published_at,
+            }
+
+        # Case 3: Latest Release (with fallback to default branch commit)
         try:
             resp = await self._request(
                 "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/releases/latest"
@@ -125,31 +187,25 @@ class GitHubClient:
                 "published_at": data.get("published_at"),
             }
         except GitHubNotFoundError:
-            _LOGGER.debug("No releases found for %s/%s, falling back to branch commit", owner, repo)
+            _LOGGER.debug("No releases found for %s/%s, falling back to default branch", owner, repo)
 
-        # 2. Fallback to latest commit on specified branch or default branch
-        target_branch = preferred_branch
-        if not target_branch:
-            repo_info = await self.get_repository_info(owner, repo)
-            target_branch = repo_info.get("default_branch", "main")
-
+        repo_info = await self.get_repository_info(owner, repo)
+        default_branch = repo_info.get("default_branch", "main")
         resp = await self._request(
-            "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/commits/{target_branch}"
+            "GET", f"{GITHUB_API_BASE}/repos/{owner}/{repo}/commits/{default_branch}"
         )
         commit_data = await resp.json()
         sha = commit_data.get("sha", "")
         commit_msg = commit_data.get("commit", {}).get("message", "")
-        published_at = commit_data.get("commit", {}).get("author", {}).get("date")
-
         return {
             "version": sha[:7] if sha else "unknown",
             "commit_sha": sha,
-            "type": "commit",
-            "branch": target_branch,
+            "type": "branch",
+            "branch": default_branch,
             "release_url": commit_data.get("html_url"),
             "release_name": commit_msg.split("\n")[0] if commit_msg else sha[:7],
             "release_notes": commit_msg,
-            "published_at": published_at,
+            "published_at": commit_data.get("commit", {}).get("author", {}).get("date"),
         }
 
     async def download_zipball(
@@ -158,7 +214,5 @@ class GitHubClient:
         """Download repository archive as zip bytes."""
         ref_path = f"/{ref}" if ref else ""
         url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/zipball{ref_path}"
-
-        # First request to get redirect or content
         resp = await self._request("GET", url, allow_redirects=True)
         return await resp.read()

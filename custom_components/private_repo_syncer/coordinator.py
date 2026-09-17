@@ -74,20 +74,22 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         installed_map = await self.hass.async_add_executor_job(self.scan_installed_components)
 
         for repo_entry in self.repositories:
-            # repo_entry format: {"repo": "owner/name", "branch": "main", "target_domain": "..."}
             full_repo = repo_entry.get("repo", "")
             if "/" not in full_repo:
                 continue
 
             owner, repo = full_repo.split("/", 1)
-            branch = repo_entry.get("branch") or None
+            target_type = repo_entry.get("target_type", "release")
+            target_value = repo_entry.get("target_value") or repo_entry.get("branch") or None
             target_domain = repo_entry.get("target_domain")
 
             try:
-                remote_info = await self.client.get_latest_version_info(owner, repo, branch)
+                remote_info = await self.client.get_latest_version_info(
+                    owner, repo, target_type=target_type, target_value=target_value
+                )
                 latest_version = remote_info.get("version", "unknown")
 
-                # Determine installed version if target_domain is known or matches repo name
+                # Determine installed version
                 inferred_domain = target_domain or repo.replace("-", "_").lower()
                 installed_version = installed_map.get(inferred_domain)
 
@@ -102,7 +104,8 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     "owner": owner,
                     "repo": repo,
                     "full_name": full_repo,
-                    "branch": branch,
+                    "target_type": target_type,
+                    "target_value": target_value,
                     "target_domain": inferred_domain,
                     "latest_version": latest_version,
                     "installed_version": installed_version,
@@ -111,7 +114,6 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 }
             except GitHubClientError as err:
                 _LOGGER.warning("Error fetching info for %s: %s", full_repo, err)
-                # Keep previous data if available to avoid entity disappearance
                 if self.data and full_repo in self.data:
                     data[full_repo] = self.data[full_repo]
                 else:
@@ -119,7 +121,8 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                         "owner": owner,
                         "repo": repo,
                         "full_name": full_repo,
-                        "branch": branch,
+                        "target_type": target_type,
+                        "target_value": target_value,
                         "target_domain": target_domain or repo.replace("-", "_").lower(),
                         "latest_version": "unknown",
                         "installed_version": None,
@@ -139,6 +142,19 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             raise ValueError(f"Invalid repository identifier: {full_repo}")
 
         owner, repo = full_repo.split("/", 1)
+
+        # Determine reference if not explicitly passed
+        if not ref:
+            for r in self.repositories:
+                if r.get("repo") == full_repo:
+                    t_type = r.get("target_type")
+                    t_val = r.get("target_value") or r.get("branch")
+                    if t_type in ("branch", "tag") and t_val:
+                        ref = t_val
+                    elif t_type == "release" and t_val and t_val != "latest":
+                        ref = t_val
+                    break
+
         _LOGGER.info("Starting sync for repository %s (ref=%s, force=%s)", full_repo, ref, force)
 
         # 1. Download zipball from GitHub

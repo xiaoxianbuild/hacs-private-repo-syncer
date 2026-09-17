@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
   <a href="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml"><img src="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/actions/workflows/release.yml/badge.svg" alt="Release"></a>
-  <a href="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/releases"><img src="https://img.shields.io/github/v/release/xiaoxianbuild/hacs-private-repo-syncer" alt="GitHub Release"></a>
+  <a href="https://github.com/xiaoxianbuild/hacs-private-repo-syncer/releases"><img src="https://github.com/xiaoxianbuild/hacs-private-repo-syncer" alt="GitHub Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/xiaoxianbuild/hacs-private-repo-syncer" alt="License"></a>
 </p>
 
@@ -23,13 +23,16 @@
   若您的私有仓库是全栈或混合仓库（例如包含 Go/Node 后端服务、`Dockerfile`、`node_modules`、前端源码等），同步引擎将**只提取** `custom_components/<domain>` 子目录，彻底杜绝垃圾文件污染 Home Assistant。
 - 📦 **原生 Update Entity 支持**：
   为每个受监控的私有仓库自动创建 Home Assistant 原生的 `Update` 实体。在 HA 的“设置 -> 系统 -> 更新”面板中直观查看版本变动、Release Notes，并支持一键点击安装更新。
+- 🎯 **两步向导 & 自动版本发现**：
+  - **第 1 步**：输入 PAT 与标准仓库 URL，即时在线校验权限与连通性；
+  - **第 2 步**：自动列出该仓库的所有 Release、Tag 标签与 Branch 分支供您可视化选择。
 - 🔒 **全异步 & 零环境依赖**：
   无需在 HA OS / 容器中安装 `git` 或配置复杂的 SSH 密钥。直接基于 `aiohttp` 异步流式下载 GitHub API zip 归档，性能极高且无阻塞。
 - 🛡️ **生产级安全防护**：
   - 内置 **Zip Slip 路径穿越漏洞防御**；
   - 更新时自动备份旧版本并在解压异常时**原子回滚**，保障系统稳定性。
 - ⚙️ **完整的 UI 配置流程**：
-  支持通过 Home Assistant 原生 Config Flow 与 Options Flow 随时添加、修改、移除私有仓库及轮询周期，无需手写 YAML。
+  支持通过 Home Assistant 原生 Config Flow 与 Options Flow 随时切换分支/标签或调整更新轮询周期。
 - 🔔 **更新完成智能通知**：
   插件更新完成后自动发送 HA 持久化通知（Persistent Notification），提示用户重启 Home Assistant 生效。
 
@@ -110,16 +113,19 @@ my-flat-component/
 
 1. 进入 Home Assistant **设置 (Settings)** -> **设备与服务 (Devices & Services)**；
 2. 点击右下角 **添加集成 (Add Integration)**，搜索 `HACS Private Repo Syncer`；
-3. **第一步**：粘贴您的 GitHub Personal Access Token；
-4. **第二步**：输入您需要同步的私有仓库 GitHub URL，格式如：
-   ```text
-   https://github.com/your_username/repo_a
-   https://github.com/your_username/repo_b/tree/dev
-   ```
-   - 支持直接从浏览器地址栏复制完整 URL；
-   - 支持多行或逗号分隔；
-   - 支持带有 `/tree/分支名` 指定跟踪特定分支（若不指定，优先检测最新 Release，无 Release 时跟踪默认分支）。
-5. 点击提交即可！
+3. **第 1 步：身份验证与仓库地址**：
+   - 填写 GitHub Personal Access Token；
+   - 填写私有仓库标准 URL，例如：`https://github.com/your_username/repo_a`；
+   - 点击下一步，系统将自动校验 Token 权限及仓库连通性。若 Token 无权限或仓库不存在，将直接标红提示修改。
+4. **第 2 步：选择安装目标 (Release / Tag / Branch)**：
+   - 校验成功后，系统自动在线拉取该仓库的最新版本列表；
+   - 在下拉菜单中自由选择：
+     - 🚀 **Latest Release**（推荐：始终跟随作者最新发布的正式版本）
+     - 📦 **特定 Release**（如 `v1.2.0`）
+     - 🏷️ **特定 Tag 标签**（如 `v1.0.0`）
+     - 🌿 **特定 Branch 分支**（如 `main` 或 `dev` 分支最新代码）
+   - 设置更新检查间隔（默认 120 分钟）；
+5. 点击提交即完成安装与自动化监控！
 
 ---
 
