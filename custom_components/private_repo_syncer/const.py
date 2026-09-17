@@ -2,7 +2,7 @@
 
 DOMAIN = "private_repo_syncer"
 NAME = "HACS Private Repo Syncer"
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 
 # Configuration keys
 CONF_GITHUB_TOKEN = "github_token"

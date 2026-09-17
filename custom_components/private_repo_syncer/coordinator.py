@@ -142,26 +142,39 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             raise ValueError(f"Invalid repository identifier: {full_repo}")
 
         owner, repo = full_repo.split("/", 1)
+        notification_id = f"synced_{full_repo.replace('/', '_')}"
+
+        # Find repository configuration
+        repo_cfg = {}
+        for r in self.repositories:
+            if r.get("repo") == full_repo:
+                repo_cfg = r
+                break
+
+        target_type = repo_cfg.get("target_type", "release")
+        target_value = repo_cfg.get("target_value") or repo_cfg.get("branch") or "latest"
 
         # Determine reference if not explicitly passed
         if not ref:
-            for r in self.repositories:
-                if r.get("repo") == full_repo:
-                    t_type = r.get("target_type")
-                    t_val = r.get("target_value") or r.get("branch")
-                    if t_type in ("branch", "tag") and t_val:
-                        ref = t_val
-                    elif t_type == "release":
-                        if t_val and t_val != "latest":
-                            ref = t_val
-                        else:
-                            repo_data = self.data.get(full_repo, {}) if self.data else {}
-                            latest_ver = repo_data.get("latest_version")
-                            if latest_ver and latest_ver != "unknown":
-                                ref = latest_ver
-                    break
+            if target_type in ("branch", "tag") and target_value:
+                ref = target_value
+            elif target_type == "release":
+                if target_value and target_value != "latest":
+                    ref = target_value
+                else:
+                    repo_data = self.data.get(full_repo, {}) if self.data else {}
+                    latest_ver = repo_data.get("latest_version")
+                    if latest_ver and latest_ver != "unknown":
+                        ref = latest_ver
 
-        _LOGGER.info("Starting sync for repository %s (ref=%s, force=%s)", full_repo, ref, force)
+        _LOGGER.info(
+            "Starting sync for repository %s (target=%s:%s, ref=%s, force=%s)",
+            full_repo,
+            target_type,
+            target_value,
+            ref,
+            force,
+        )
 
         try:
             # 1. Download zipball from GitHub
@@ -177,43 +190,105 @@ class PrivateRepoCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
             extracted = await self.hass.async_add_executor_job(_extract)
 
-            # 3. Refresh coordinator data
+            # 3. Refresh coordinator data to get updated version & commit details
             await self.async_refresh()
 
-            # 4. Notify user to restart Home Assistant
-            extracted_domains = ", ".join(item["domain"] for item in extracted)
+            # 4. Construct rich notification message
+            repo_data = self.data.get(full_repo, {}) if self.data else {}
+            release_info = repo_data.get("release_info", {})
+            extracted_domains = ", ".join(f"`{item['domain']}`" for item in extracted)
+
+            details_lines: List[str] = []
+            if target_type == "branch":
+                branch_name = release_info.get("branch") or target_value
+                sha = release_info.get("commit_sha") or release_info.get("version", "unknown")
+                short_sha = sha[:7] if sha and sha != "unknown" else "unknown"
+                raw_msg = release_info.get("release_notes") or release_info.get("release_name") or ""
+                commit_msg = raw_msg.strip().split("\n")[0] if raw_msg else "无提交说明"
+                details_lines.append(f"- 🌿 **分支 (Branch)**: `{branch_name}`")
+                details_lines.append(f"- 🔖 **提交 (Commit)**: `{short_sha}`")
+                details_lines.append(f"- 📝 **提交说明**: {commit_msg}")
+            elif target_type == "tag":
+                tag_name = release_info.get("version") or target_value
+                details_lines.append(f"- 🏷️ **标签 (Tag)**: `{tag_name}`")
+            else:  # release
+                rel_ver = release_info.get("version") or target_value
+                rel_name = release_info.get("release_name") or rel_ver
+                if rel_name != rel_ver:
+                    details_lines.append(f"- 🚀 **版本 (Release)**: `{rel_ver}` ({rel_name})")
+                else:
+                    details_lines.append(f"- 🚀 **版本 (Release)**: `{rel_ver}`")
+
+            details_str = "\n".join(details_lines)
+
+            message = (
+                f"### 🎉 插件同步成功！\n\n"
+                f"- 📦 **仓库**: `{full_repo}`\n"
+                f"{details_str}\n"
+                f"- 📁 **已安装组件**: {extracted_domains}\n\n"
+                f"> ⚠️ **请重启 Home Assistant** 以使更新后的组件代码生效。"
+            )
+
             persistent_notification.async_create(
                 self.hass,
-                message=(
-                    f"Repository **{full_repo}** has been synced successfully!\n\n"
-                    f"Updated component(s): `{extracted_domains}` in `/config/custom_components`.\n\n"
-                    f"Please **restart Home Assistant** for the new components to take effect."
-                ),
-                title="Private Repo Synced",
-                notification_id=f"synced_{full_repo.replace('/', '_')}",
+                message=message,
+                title=f"✅ [同步成功] {full_repo}",
+                notification_id=notification_id,
             )
 
             return extracted
 
         except ComponentNotFoundError as exc:
             _LOGGER.error("No valid HACS component found in %s: %s", full_repo, exc)
+            message = (
+                f"### ❌ 插件同步失败！\n\n"
+                f"- 📦 **仓库**: `{full_repo}`\n"
+                f"- 🎯 **目标**: `{target_type}: {target_value}`\n"
+                f"- ⚠️ **失败原因**: 仓库中未找到合法的自定义组件！\n\n"
+                f"> **排查建议**：\n"
+                f"> 1. 请确认仓库中包含 `custom_components/<domain>/manifest.json` 或根目录 `manifest.json`；\n"
+                f"> 2. 检查选定的分支或标签中是否已提交该文件。"
+            )
             persistent_notification.async_create(
                 self.hass,
-                message=(
-                    f"Failed to sync **{full_repo}**: No valid HACS custom component found!\n\n"
-                    f"Please ensure the repository contains `custom_components/<domain>/manifest.json` or root `manifest.json`."
-                ),
-                title="Private Repo Sync Failed",
-                notification_id=f"sync_err_{full_repo.replace('/', '_')}",
+                message=message,
+                title=f"❌ [同步失败] {full_repo}",
+                notification_id=notification_id,
+            )
+            raise
+
+        except GitHubClientError as exc:
+            _LOGGER.error("GitHub API error during sync for %s: %s", full_repo, exc)
+            message = (
+                f"### ❌ 插件同步失败！\n\n"
+                f"- 📦 **仓库**: `{full_repo}`\n"
+                f"- 🎯 **目标**: `{target_type}: {target_value}`\n"
+                f"- ⚠️ **GitHub 错误**: {exc}\n\n"
+                f"> **排查建议**：\n"
+                f"> 1. 请确认 GitHub Personal Access Token 是否具有读取该私有仓库的权限；\n"
+                f"> 2. 检查网络连接是否正常。"
+            )
+            persistent_notification.async_create(
+                self.hass,
+                message=message,
+                title=f"❌ [同步失败] {full_repo}",
+                notification_id=notification_id,
             )
             raise
 
         except Exception as exc:
-            _LOGGER.exception("Sync failed for repository %s: %s", full_repo, exc)
+            _LOGGER.exception("Unexpected sync failure for %s: %s", full_repo, exc)
+            message = (
+                f"### ❌ 插件同步失败！\n\n"
+                f"- 📦 **仓库**: `{full_repo}`\n"
+                f"- 🎯 **目标**: `{target_type}: {target_value}`\n"
+                f"- ⚠️ **异常详情**: {exc}\n\n"
+                f"> 请查看 Home Assistant 后台系统日志获取完整错误堆栈。"
+            )
             persistent_notification.async_create(
                 self.hass,
-                message=f"Failed to sync repository **{full_repo}**: {exc}",
-                title="Private Repo Sync Error",
-                notification_id=f"sync_err_{full_repo.replace('/', '_')}",
+                message=message,
+                title=f"❌ [同步失败] {full_repo}",
+                notification_id=notification_id,
             )
             raise
